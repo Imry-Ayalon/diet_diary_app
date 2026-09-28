@@ -9,6 +9,7 @@ enum MealType: Int, Codable, CaseIterable, Identifiable {
     case afternoonSnack = 3
     case dinner = 4
     case nightSnack = 5
+    case workout = 6
     
     var id: Int { rawValue }
     
@@ -20,6 +21,14 @@ enum MealType: Int, Codable, CaseIterable, Identifiable {
         case .afternoonSnack: return "ביניים צהריים"
         case .dinner: return "ארוחת ערב"
         case .nightSnack: return "ארוחת לילה"
+        case .workout: return "אימון גופני"
+        }
+    }
+    
+    var symbolName: String {
+        switch self {
+        case .workout: return "figure.run"
+        default: return "fork.knife"
         }
     }
     
@@ -31,7 +40,24 @@ enum MealType: Int, Codable, CaseIterable, Identifiable {
         case .afternoonSnack: return Color.teal
         case .dinner: return Color.blue
         case .nightSnack: return Color.indigo
+        case .workout: return Color.red
         }
+    }
+}
+
+extension Date {
+    func diarySectionTitle(calendar: Calendar = .current) -> String {
+        if calendar.isDateInToday(self) { return "היום" }
+        if calendar.isDateInYesterday(self) { return "אתמול" }
+        return diaryFullTitle(calendar: calendar)
+    }
+    
+    func diaryFullTitle(calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "he_IL")
+        formatter.calendar = calendar
+        formatter.setLocalizedDateFormatFromTemplate("EEEE d MMMM yyyy")
+        return formatter.string(from: self)
     }
 }
 

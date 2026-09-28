@@ -15,21 +15,32 @@ struct AddMealView: View {
     @State private var isShowingCamera = false
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     
+    private let existingEntry: FoodEntry?
+    
+    init(entry: FoodEntry? = nil) {
+        existingEntry = entry
+        _title = State(initialValue: entry?.title ?? "")
+        _notes = State(initialValue: entry?.notes ?? "")
+        _selectedDate = State(initialValue: entry?.date ?? Date())
+        _selectedMealType = State(initialValue: entry?.mealType ?? .lunch)
+        _imageData = State(initialValue: entry?.imageData)
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("פרטי ארוחה")) {
+                Section(header: Text(isWorkout ? "פרטי אימון" : "פרטי ארוחה")) {
                     DatePicker("תאריך", selection: $selectedDate, displayedComponents: .date)
                         .environment(\.locale, Locale(identifier: "he_IL"))
                     
-                    Picker("סוג ארוחה", selection: $selectedMealType) {
+                    Picker("סוג", selection: $selectedMealType) {
                         ForEach(MealType.allCases) { type in
                             Text(type.title).tag(type)
                         }
                     }
                     
-                    TextField("שם המאכל", text: $title)
-                    TextField("הערות או מרכיבים", text: $notes)
+                    TextField(isWorkout ? "תיאור האימון" : "שם המאכל", text: $title)
+                    TextField(isWorkout ? "הערות" : "הערות או מרכיבים", text: $notes)
                 }
                 
                 Section(header: Text("תמונה")) {
@@ -71,7 +82,7 @@ struct AddMealView: View {
                     }
                 }
             }
-            .navigationTitle("הוסף ארוחה")
+            .navigationTitle(formTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -92,15 +103,41 @@ struct AddMealView: View {
         }
     }
     
+    private var isWorkout: Bool {
+        selectedMealType == .workout
+    }
+    
+    private var isEditing: Bool {
+        existingEntry != nil
+    }
+    
+    private var formTitle: String {
+        if isEditing {
+            return isWorkout ? "עריכת אימון" : "עריכת ארוחה"
+        }
+        return isWorkout ? "הוסף אימון" : "הוסף ארוחה"
+    }
+    
     private func saveMeal() {
-        let entry = FoodEntry(
-            title: title.trimmingCharacters(in: .whitespaces),
-            notes: notes.trimmingCharacters(in: .whitespaces),
-            date: selectedDate,
-            mealType: selectedMealType,
-            imageData: imageData
-        )
-        modelContext.insert(entry)
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespaces)
+        
+        if let existingEntry {
+            existingEntry.title = trimmedTitle
+            existingEntry.notes = trimmedNotes
+            existingEntry.date = selectedDate
+            existingEntry.mealType = selectedMealType
+            existingEntry.imageData = imageData
+        } else {
+            let entry = FoodEntry(
+                title: trimmedTitle,
+                notes: trimmedNotes,
+                date: selectedDate,
+                mealType: selectedMealType,
+                imageData: imageData
+            )
+            modelContext.insert(entry)
+        }
         dismiss()
     }
 }
