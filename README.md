@@ -16,10 +16,16 @@ To install this app on your own iPhone, you will need a Mac with Xcode installed
    - Go to the **Signing & Capabilities** tab.
    - Check "Automatically manage signing".
    - Select your personal Apple ID from the **Team** dropdown (you may need to sign in with your Apple ID in Xcode Settings first).
-7. **Install:** At the top of the Xcode window, select your iPhone from the device list next to the Play button, then click the **Play** button (or press `Cmd+R`) to build and install the app.
+7. **Install:** At the top of the Xcode window, set the scheme to **Meal Diary** (it should read `Imry's apps > Meal Diary`), select your iPhone from the device list next to the Play button, then click the **Play** button (or press `Cmd+R`) to build and install the app.
 8. **Trust the developer:** The first time you try to open the app on your phone, it might say "Untrusted Developer". Go to **Settings > General > VPN & Device Management**, tap your Apple ID under "Developer App", and choose to trust it.
 
 *(Note: The project targets iOS 27. The camera works on a real device; the simulator can still add meals from the photo library).*
+
+## Ride app
+
+The same Xcode project also builds **רכיבה**, a second app for bike rides. Choose the **Ride** scheme, then run it on your iPhone the same way as the diary. The first time Xcode signs it, allow the App Group so the finished ride can be added to the diary’s sport section. Location is used only while a ride is in progress and stays on the phone. Map pictures may still load from Apple.
+
+In the ride app, tap **התחל**. A traffic light pauses by itself and continues when you move. **הפסקה** stays paused until **המשך**. **סיום** saves the route and adds an אימון גופני row. Enter your weight once if you want a calorie estimate.
 
 ## Logging
 

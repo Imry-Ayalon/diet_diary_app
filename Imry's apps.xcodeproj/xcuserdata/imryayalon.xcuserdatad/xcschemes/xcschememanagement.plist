@@ -4,15 +4,32 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
-		<key>Imry's apps.xcscheme_^#shared#^_</key>
+		<key>Meal Diary.xcscheme_^#shared#^_</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
 			<integer>0</integer>
 		</dict>
-		<key>MyApp.xcscheme_^#shared#^_</key>
+		<key>Ride.xcscheme_^#shared#^_</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>1</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>000000000000000100000000</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>A10000000000000000000001</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>
