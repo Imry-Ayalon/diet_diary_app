@@ -2,7 +2,24 @@
 
 A Hebrew iPhone diary for meals and workouts. Photos, names, and reports stay on the phone.
 
-Open `Imry's apps.xcodeproj` in Xcode and run the **Imry's apps** scheme. The project targets iOS 27. The camera works on a device; the simulator can still add meals from the photo library.
+## How to run on your iPhone
+
+To install this app on your own iPhone, you will need a Mac with Xcode installed.
+
+1. **Download the code:** Clone this repository or download the ZIP file.
+2. **Open the project:** Double-click `Imry's apps.xcodeproj` to open it in Xcode.
+3. **Connect your iPhone:** Plug your iPhone into your Mac using a cable.
+4. **Trust your Mac:** If prompted on your iPhone, tap "Trust This Computer".
+5. **Enable Developer Mode:** On your iPhone, go to **Settings > Privacy & Security > Developer Mode** and turn it on. Your iPhone will restart. After it restarts, unlock it and confirm you want to turn on Developer Mode.
+6. **Set up signing in Xcode:** 
+   - In Xcode, click on `Imry's apps` at the very top of the left sidebar (the Project Navigator).
+   - Go to the **Signing & Capabilities** tab.
+   - Check "Automatically manage signing".
+   - Select your personal Apple ID from the **Team** dropdown (you may need to sign in with your Apple ID in Xcode Settings first).
+7. **Install:** At the top of the Xcode window, select your iPhone from the device list next to the Play button, then click the **Play** button (or press `Cmd+R`) to build and install the app.
+8. **Trust the developer:** The first time you try to open the app on your phone, it might say "Untrusted Developer". Go to **Settings > General > VPN & Device Management**, tap your Apple ID under "Developer App", and choose to trust it.
+
+*(Note: The project targets iOS 27. The camera works on a real device; the simulator can still add meals from the photo library).*
 
 ## Logging
 
