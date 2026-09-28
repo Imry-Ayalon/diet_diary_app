@@ -68,6 +68,7 @@ final class FoodEntry {
     var date: Date
     var mealTypeRaw: Int?
     @Attribute(.externalStorage) var imageData: Data?
+    var featurePrint: Data?
     
     @Transient
     var mealType: MealType {
@@ -75,11 +76,12 @@ final class FoodEntry {
         set { mealTypeRaw = newValue.rawValue }
     }
     
-    init(title: String, notes: String, date: Date = Date(), mealType: MealType = .lunch, imageData: Data? = nil) {
+    init(title: String, notes: String, date: Date = Date(), mealType: MealType = .lunch, imageData: Data? = nil, featurePrint: Data? = nil) {
         self.title = title
         self.notes = notes
         self.date = date
         self.mealTypeRaw = mealType.rawValue
         self.imageData = imageData
+        self.featurePrint = featurePrint
     }
 }

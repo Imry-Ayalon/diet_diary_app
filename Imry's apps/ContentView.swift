@@ -223,7 +223,8 @@ struct ContentView: View {
             notes: entry.notes,
             date: Date(),
             mealType: entry.mealType,
-            imageData: entry.imageData
+            imageData: entry.imageData,
+            featurePrint: entry.featurePrint
         )
         withAnimation {
             modelContext.insert(copy)
