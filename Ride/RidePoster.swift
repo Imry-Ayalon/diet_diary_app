@@ -4,6 +4,7 @@ import MapKit
 @MainActor
 enum RidePoster {
     struct Stats {
+        var kind: ActivityKind
         var date: Date
         var distanceMeters: Double
         var movingSeconds: TimeInterval
@@ -67,11 +68,11 @@ enum RidePoster {
         let distanceX = canvasWidth - sideInset - columnWidth
         let timeX = sideInset
 
-        if let icon = UIImage(systemName: "bicycle", withConfiguration: UIImage.SymbolConfiguration(pointSize: 58, weight: .medium))?.withTintColor(.white, renderingMode: .alwaysOriginal) {
+        if let icon = UIImage(systemName: stats.kind.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 58, weight: .medium))?.withTintColor(.white, renderingMode: .alwaysOriginal) {
             icon.draw(in: CGRect(x: canvasWidth - sideInset - 72, y: 1040, width: 72, height: 58))
         }
 
-        draw(rideTitle(stats.date), in: CGRect(x: sideInset, y: 1136, width: textWidth, height: 80), font: .systemFont(ofSize: 64, weight: .bold), color: .white, alignment: .right)
+        draw(stats.kind.posterTitle(at: stats.date), in: CGRect(x: sideInset, y: 1136, width: textWidth, height: 80), font: .systemFont(ofSize: 64, weight: .bold), color: .white, alignment: .right)
 
         let labelFont = UIFont.systemFont(ofSize: 32, weight: .regular)
         let labelColor = UIColor.white.withAlphaComponent(0.92)
@@ -101,15 +102,6 @@ enum RidePoster {
             .paragraphStyle: style
         ]
         (text as NSString).draw(in: rect, withAttributes: attributes)
-    }
-
-    private static func rideTitle(_ date: Date) -> String {
-        switch Calendar.current.component(.hour, from: date) {
-        case 5..<12: return "רכיבת בוקר"
-        case 12..<17: return "רכיבת צהריים"
-        case 17..<22: return "רכיבת ערב"
-        default: return "רכיבת לילה"
-        }
     }
 
     private static func distanceText(_ meters: Double) -> String {

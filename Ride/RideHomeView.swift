@@ -23,7 +23,7 @@ struct RideHomeView: View {
                     activeRide
                 }
             }
-            .navigationTitle("רכיבה")
+            .navigationTitle("movement")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("משקל") { showingWeight = true }
@@ -37,11 +37,11 @@ struct RideHomeView: View {
             } message: {
                 Text(saveError ?? "")
             }
-            .confirmationDialog("למחוק את הרכיבה?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            .confirmationDialog("למחוק את \(session.kind.definite)?", isPresented: $confirmDiscard, titleVisibility: .visible) {
                 Button("מחק", role: .destructive) { session.discard() }
-                Button("המשך לרכוב", role: .cancel) {}
+                Button(session.kind.resume, role: .cancel) {}
             } message: {
-                Text("הרכיבה לא תישמר.")
+                Text("\(session.kind.definite) לא תישמר.")
             }
         }
     }
@@ -49,25 +49,23 @@ struct RideHomeView: View {
     private var history: some View {
         List {
             Section {
-                Button(action: session.start) {
-                    Label("התחל", systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 12) {
+                    startButton(.ride)
+                    startButton(.run)
                 }
-                .buttonStyle(.borderedProminent)
                 .listRowInsets(EdgeInsets())
                 .padding()
 
                 if session.locationDenied {
-                    Text("כדי למדוד רכיבה צריך לאשר מיקום בהגדרות.")
+                    Text("כדי למדוד רכיבה או ריצה צריך לאשר מיקום בהגדרות.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            Section("רכיבות") {
+            Section("פעילויות") {
                 if rides.isEmpty {
-                    Text("עדיין אין רכיבות")
+                    Text("עדיין אין פעילויות")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(rides) { ride in
@@ -75,8 +73,10 @@ struct RideHomeView: View {
                             RideDetailView(ride: ride, diary: diary)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(ride.date.formatted(date: .abbreviated, time: .shortened))
+                                Label(ride.kind.label, systemImage: ride.kind.symbol)
                                     .font(.headline)
+                                Text(ride.date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
                                 Text(RideSummary.notes(
                                     distanceMeters: ride.distanceMeters,
                                     movingSeconds: ride.movingSeconds,
@@ -98,13 +98,25 @@ struct RideHomeView: View {
         }
     }
 
+    private func startButton(_ kind: ActivityKind) -> some View {
+        Button {
+            session.start(kind)
+        } label: {
+            Label(kind.label, systemImage: kind.symbol)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(kind == .ride ? .teal : .orange)
+    }
+
     private var activeRide: some View {
         VStack(spacing: 16) {
             RideMap(track: session.track, followsUser: true)
                 .frame(maxHeight: .infinity)
 
             VStack(spacing: 6) {
-                Text(phaseTitle)
+                Label(phaseTitle, systemImage: session.kind.symbol)
                     .font(.headline)
                 Text(String(format: "%.2f ק״מ", session.distanceMeters / 1000))
                     .font(.system(size: 42, weight: .bold, design: .rounded))
@@ -137,7 +149,7 @@ struct RideHomeView: View {
     private var phaseTitle: String {
         switch session.phase {
         case .idle: return ""
-        case .riding: return "רוכב"
+        case .riding: return session.kind.moving
         case .trafficPause: return "עצירה ברמזור"
         case .breakPause: return "הפסקה"
         }
@@ -147,7 +159,8 @@ struct RideHomeView: View {
         guard let calories = RideCalories.estimate(
             distanceMeters: session.distanceMeters,
             movingSeconds: session.movingSeconds,
-            weightKg: weightKg
+            weightKg: weightKg,
+            kind: session.kind
         ) else {
             return weightKg > 0 ? "כ-0 קק״ל" : "בלי משקל"
         }
@@ -167,7 +180,8 @@ struct RideHomeView: View {
         let calories = RideCalories.estimate(
             distanceMeters: snapshot.distanceMeters,
             movingSeconds: snapshot.movingSeconds,
-            weightKg: weightKg
+            weightKg: weightKg,
+            kind: snapshot.kind
         )
         modelContext.insert(Ride(
             date: finished,
@@ -176,11 +190,13 @@ struct RideHomeView: View {
             calories: calories,
             ascentMeters: snapshot.ascentMeters,
             maxSpeedMetersPerSecond: snapshot.maxSpeedMetersPerSecond,
+            kind: snapshot.kind,
             track: snapshot.track
         ))
         try? modelContext.save()
         do {
-            try DiaryWorkout.addRide(
+            try DiaryWorkout.add(
+                snapshot.kind,
                 on: finished,
                 distanceMeters: snapshot.distanceMeters,
                 movingSeconds: snapshot.movingSeconds,
@@ -189,12 +205,12 @@ struct RideHomeView: View {
                 container: diary
             )
         } catch {
-            saveError = "הרכיבה נשמרה כאן, אבל לא נוספה ליומן."
+            saveError = "\(snapshot.kind.definite) נשמרה כאן, אבל לא נוספה ליומן."
         }
     }
 
     private func delete(_ ride: Ride) {
-        DiaryWorkout.removeRide(on: ride.date, container: diary)
+        DiaryWorkout.remove(ride.kind, on: ride.date, container: diary)
         modelContext.delete(ride)
         try? modelContext.save()
     }
@@ -268,11 +284,11 @@ private struct RideDetailView: View {
                 Button("מחק", role: .destructive) { confirmDelete = true }
             }
         }
-        .confirmationDialog("למחוק את הרכיבה?", isPresented: $confirmDelete, titleVisibility: .visible) {
+        .confirmationDialog("למחוק את \(ride.kind.definite)?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("מחק", role: .destructive) { remove() }
             Button("ביטול", role: .cancel) {}
         } message: {
-            Text("הרכיבה תוסר גם מיומן הארוחות.")
+            Text("\(ride.kind.definite) תוסר גם מיומן הארוחות.")
         }
         .alert("לא נוצרה תמונה", isPresented: $shareError) {
             Button("בסדר", role: .cancel) {}
@@ -292,6 +308,7 @@ private struct RideDetailView: View {
         isSharing = true
         defer { isSharing = false }
         let stats = RidePoster.Stats(
+            kind: ride.kind,
             date: ride.date,
             distanceMeters: ride.distanceMeters,
             movingSeconds: ride.movingSeconds,
@@ -307,7 +324,7 @@ private struct RideDetailView: View {
     }
 
     private func remove() {
-        DiaryWorkout.removeRide(on: ride.date, container: diary)
+        DiaryWorkout.remove(ride.kind, on: ride.date, container: diary)
         modelContext.delete(ride)
         try? modelContext.save()
         dismiss()

@@ -39,6 +39,7 @@ final class Ride {
     var calories: Int?
     var ascentMeters: Double?
     var maxSpeedMetersPerSecond: Double?
+    var kindRaw: String?
     var trackData: Data
 
     init(
@@ -48,6 +49,7 @@ final class Ride {
         calories: Int?,
         ascentMeters: Double = 0,
         maxSpeedMetersPerSecond: Double = 0,
+        kind: ActivityKind = .ride,
         track: [TrackPoint]
     ) {
         self.date = date
@@ -56,7 +58,12 @@ final class Ride {
         self.calories = calories
         self.ascentMeters = ascentMeters
         self.maxSpeedMetersPerSecond = maxSpeedMetersPerSecond
+        self.kindRaw = kind.rawValue
         self.trackData = (try? JSONEncoder().encode(track)) ?? Data()
+    }
+
+    var kind: ActivityKind {
+        ActivityKind(rawValue: kindRaw ?? "") ?? .ride
     }
 
     var track: [TrackPoint] {
@@ -79,22 +86,108 @@ enum DiaryStoreError: Error {
     case missingAppGroup
 }
 
+enum ActivityKind: String {
+    case ride
+    case run
+
+    var label: String {
+        switch self {
+        case .ride: "רכיבה"
+        case .run: "ריצה"
+        }
+    }
+
+    var moving: String {
+        switch self {
+        case .ride: "רוכב"
+        case .run: "רץ"
+        }
+    }
+
+    var resume: String {
+        switch self {
+        case .ride: "המשך לרכוב"
+        case .run: "המשך לרוץ"
+        }
+    }
+
+    var diaryTitle: String {
+        switch self {
+        case .ride: "רכיבת אופניים"
+        case .run: "ריצה"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .ride: "bicycle"
+        case .run: "figure.run"
+        }
+    }
+
+    var slowSpeed: Double {
+        switch self {
+        case .ride: 0.8
+        case .run: 0.5
+        }
+    }
+
+    var resumeSpeed: Double {
+        switch self {
+        case .ride: 2.0
+        case .run: 1.3
+        }
+    }
+
+    var definite: String {
+        switch self {
+        case .ride: "הרכיבה"
+        case .run: "הריצה"
+        }
+    }
+
+    func posterTitle(at date: Date) -> String {
+        let time: String
+        switch Calendar.current.component(.hour, from: date) {
+        case 5..<12: time = "בוקר"
+        case 12..<17: time = "צהריים"
+        case 17..<22: time = "ערב"
+        default: time = "לילה"
+        }
+        switch self {
+        case .ride: return "רכיבת \(time)"
+        case .run: return "ריצת \(time)"
+        }
+    }
+}
+
 enum RideCalories {
-    static func estimate(distanceMeters: Double, movingSeconds: TimeInterval, weightKg: Double) -> Int? {
+    static func estimate(distanceMeters: Double, movingSeconds: TimeInterval, weightKg: Double, kind: ActivityKind) -> Int? {
         guard weightKg > 0, movingSeconds > 0, distanceMeters > 0 else { return nil }
         let kilometersPerHour = (distanceMeters / 1000) / (movingSeconds / 3600)
-        let met = effort(for: kilometersPerHour)
+        let met = kind == .run ? runningEffort(for: kilometersPerHour) : cyclingEffort(for: kilometersPerHour)
         let hours = movingSeconds / 3600
         return Int((met * weightKg * hours).rounded())
     }
 
-    private static func effort(for kilometersPerHour: Double) -> Double {
+    private static func cyclingEffort(for kilometersPerHour: Double) -> Double {
         switch kilometersPerHour {
         case ..<16: return 4
         case ..<19: return 6
         case ..<22: return 8
         case ..<26: return 10
         default: return 12
+        }
+    }
+
+    private static func runningEffort(for kilometersPerHour: Double) -> Double {
+        switch kilometersPerHour {
+        case ..<8: return 8.3
+        case ..<9.7: return 9.8
+        case ..<11.3: return 11
+        case ..<12.9: return 11.8
+        case ..<14.5: return 12.8
+        default: return 14.5
         }
     }
 }
@@ -131,9 +224,8 @@ enum RideSummary {
 }
 
 enum DiaryWorkout {
-    static let rideTitle = "רכיבת אופניים"
-
-    static func addRide(
+    static func add(
+        _ kind: ActivityKind,
         on date: Date,
         distanceMeters: Double,
         movingSeconds: TimeInterval,
@@ -143,7 +235,7 @@ enum DiaryWorkout {
     ) throws {
         let context = ModelContext(container)
         context.insert(FoodEntry(
-            title: rideTitle,
+            title: kind.diaryTitle,
             notes: RideSummary.notes(
                 distanceMeters: distanceMeters,
                 movingSeconds: movingSeconds,
@@ -156,11 +248,11 @@ enum DiaryWorkout {
         try context.save()
     }
 
-    static func removeRide(on date: Date, container: ModelContainer) {
+    static func remove(_ kind: ActivityKind, on date: Date, container: ModelContainer) {
         let context = ModelContext(container)
         guard let entries = try? context.fetch(FetchDescriptor<FoodEntry>()) else { return }
         guard let match = entries
-            .filter({ $0.mealType == .workout && $0.title == rideTitle })
+            .filter({ $0.mealType == .workout && $0.title == kind.diaryTitle })
             .min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) }),
               abs(match.date.timeIntervalSince(date)) < 5
         else { return }

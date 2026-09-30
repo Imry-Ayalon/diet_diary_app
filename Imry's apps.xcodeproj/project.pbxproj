@@ -314,6 +314,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "יומן ארוחות";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "אנו זקוקים לגישה למצלמה כדי לצלם תמונות של הארוחות שלך אליהן תוכל לגשת ביומן הארוחות.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -357,6 +358,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "יומן ארוחות";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "אנו זקוקים לגישה למצלמה כדי לצלם תמונות של הארוחות שלך אליהן תוכל לגשת ביומן הארוחות.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -398,8 +400,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "רכיבה";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "המיקום משמש רק למדידת הרכיבה ונשמר במכשיר.";
+				INFOPLIST_KEY_CFBundleDisplayName = "movement";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "המיקום ברקע משמש רק כדי להמשיך למדוד רכיבה או ריצה כשהמסך כבוי, ונשמר במכשיר.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "המיקום משמש רק למדידת רכיבה או ריצה ונשמר במכשיר.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
@@ -433,8 +437,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RideInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "רכיבה";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "המיקום משמש רק למדידת הרכיבה ונשמר במכשיר.";
+				INFOPLIST_KEY_CFBundleDisplayName = "movement";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "המיקום ברקע משמש רק כדי להמשיך למדוד רכיבה או ריצה כשהמסך כבוי, ונשמר במכשיר.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "המיקום משמש רק למדידת רכיבה או ריצה ונשמר במכשיר.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;

@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 
 struct RideSnapshot {
+    var kind: ActivityKind
     var distanceMeters: Double
     var movingSeconds: TimeInterval
     var ascentMeters: Double
@@ -19,6 +20,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
     }
 
     private(set) var phase: Phase = .idle
+    private(set) var kind: ActivityKind = .ride
     private(set) var distanceMeters = 0.0
     private(set) var movingSeconds = 0.0
     private(set) var speedMetersPerSecond = 0.0
@@ -35,13 +37,12 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
     private var slowSeconds = 0
     private var hasFix = false
 
-    private let slowSpeed = 0.8
-    private let resumeSpeed = 2.0
     private let slowLimit = 4
     private let maxAccuracy = 25.0
 
-    func start() {
+    func start(_ kind: ActivityKind) {
         resetMeasurements()
+        self.kind = kind
         phase = .riding
         locationDenied = false
         manager.delegate = self
@@ -77,6 +78,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
     func finish() -> RideSnapshot? {
         guard phase != .idle else { return nil }
         let snapshot = RideSnapshot(
+            kind: kind,
             distanceMeters: distanceMeters,
             movingSeconds: movingSeconds,
             ascentMeters: ascentMeters,
@@ -93,6 +95,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         phase = .idle
+        kind = .ride
         resetMeasurements()
     }
 
@@ -143,7 +146,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         guard hasFix else { return }
         if phase == .riding {
             movingSeconds += 1
-            if speedMetersPerSecond < slowSpeed {
+            if speedMetersPerSecond < kind.slowSpeed {
                 slowSeconds += 1
                 if slowSeconds >= slowLimit {
                     movingSeconds = max(0, movingSeconds - Double(slowLimit))
@@ -167,13 +170,13 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         }
         recordAscent(location)
 
-        if phase == .trafficPause, location.speed > resumeSpeed {
+        if phase == .trafficPause, location.speed > kind.resumeSpeed {
             phase = .riding
             slowSeconds = 0
             lastLocation = nil
         }
 
-        guard phase == .riding, location.speed >= slowSpeed else { return }
+        guard phase == .riding, location.speed >= kind.slowSpeed else { return }
         if let lastLocation {
             let gap = location.distance(from: lastLocation)
             if gap >= 1, gap < 80 {

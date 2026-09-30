@@ -2,30 +2,20 @@
 
 A Hebrew iPhone diary for meals and workouts. Photos, names, and reports stay on the phone.
 
-## How to run on your iPhone
+## Install with TestFlight
 
-To install this app on your own iPhone, you will need a Mac with Xcode installed.
+TestFlight installs do not need Developer Mode. Both apps are set up for an App Store upload: version 1.0 (build 1), no custom encryption, and a privacy manifest. The bundle IDs are `com.imryayalon.MyApp12345` (יומן ארוחות) and `com.imryayalon.MyApp12345.ride` (movement).
 
-1. **Download the code:** Clone this repository or download the ZIP file.
-2. **Open the project:** Double-click `Imry's apps.xcodeproj` to open it in Xcode.
-3. **Connect your iPhone:** Plug your iPhone into your Mac using a cable.
-4. **Trust your Mac:** If prompted on your iPhone, tap "Trust This Computer".
-5. **Enable Developer Mode:** On your iPhone, go to **Settings > Privacy & Security > Developer Mode** and turn it on. Your iPhone will restart. After it restarts, unlock it and confirm you want to turn on Developer Mode.
-6. **Set up signing in Xcode:** 
-   - In Xcode, click on `Imry's apps` at the very top of the left sidebar (the Project Navigator).
-   - Go to the **Signing & Capabilities** tab.
-   - Check "Automatically manage signing".
-   - Select your personal Apple ID from the **Team** dropdown (you may need to sign in with your Apple ID in Xcode Settings first).
-7. **Install:** At the top of the Xcode window, set the scheme to **Meal Diary** (it should read `Imry's apps > Meal Diary`), select your iPhone from the device list next to the Play button, then click the **Play** button (or press `Cmd+R`) to build and install the app.
-8. **Trust the developer:** The first time you try to open the app on your phone, it might say "Untrusted Developer". Go to **Settings > General > VPN & Device Management**, tap your Apple ID under "Developer App", and choose to trust it.
+1. In Xcode, open **Settings > Accounts** and select the Apple ID that is enrolled in the paid Developer Program. The team must be that paid membership, not a free Personal Team.
+2. In [App Store Connect](https://appstoreconnect.apple.com/apps), create two iOS apps with those bundle IDs. Names: **יומן ארוחות** and **movement**. SKU can be the bundle ID.
+3. In Xcode, choose the **Meal Diary** scheme and **Any iOS Device**, then **Product > Archive**. In the Organizer, **Distribute App > TestFlight & App Store** and upload. Repeat for the **Ride** scheme.
+4. When the build finishes processing, open the TestFlight app on the iPhone and install it. Delete the copies that were installed from Xcode first, or iOS may refuse the new install. Deleting them also deletes the meals and rides stored on the phone.
 
-*(Note: The project targets iOS 27. The camera works on a real device; the simulator can still add meals from the photo library).*
+Running from Xcode still needs Developer Mode and a cable. The project targets iOS 27. The camera works on a real device; the simulator can still add meals from the photo library.
 
-## Ride app
+## movement
 
-The same Xcode project also builds **רכיבה**, a second app for bike rides. Choose the **Ride** scheme, then run it on your iPhone the same way as the diary. The first time Xcode signs it, allow the App Group so the finished ride can be added to the diary’s sport section. Location is used only while a ride is in progress and stays on the phone. Map pictures may still load from Apple.
-
-In the ride app, tap **התחל**. A traffic light pauses by itself and continues when you move. **הפסקה** stays paused until **המשך**. **סיום** saves the route and adds an אימון גופני row. Enter your weight once if you want a calorie estimate.
+The same Xcode project also builds **movement**. Choose the **Ride** scheme, then run it on your iPhone the same way as the diary. On the phone the app is named movement. Tap **רכיבה** or **ריצה**. A stop pauses by itself and continues when you move. **הפסקה** stays paused until **המשך**. **סיום** saves the route and adds an אימון גופני row: רכיבת אופניים or ריצה. Enter your weight once if you want a calorie estimate. Location is used only while an activity is in progress and stays on the phone. Map pictures may still load from Apple. The first time Xcode signs it, allow the App Group so the finished activity can be added to the diary’s sport section.
 
 ## Logging
 
