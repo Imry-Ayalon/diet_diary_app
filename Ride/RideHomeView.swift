@@ -320,7 +320,7 @@ private struct RideDetailView: View {
             shareError = true
             return
         }
-        presentRideShare(url: url)
+        presentShare(url: url)
     }
 
     private func remove() {

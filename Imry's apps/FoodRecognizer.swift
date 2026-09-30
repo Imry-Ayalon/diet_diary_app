@@ -1,6 +1,5 @@
 import Foundation
 import SwiftData
-import UIKit
 import Vision
 
 nonisolated enum FoodRecognizer {
@@ -20,13 +19,13 @@ nonisolated enum FoodRecognizer {
     }
 
     static func featurePrintData(for imageData: Data) -> Data? {
-        guard let image = resizedPhoto(imageData),
+        guard let image = PhotoImage.cgImage(imageData, maxPixel: photoSide),
               let observation = featurePrint(of: image) else { return nil }
         return archived(observation)
     }
 
     static func recognize(imageData: Data, meals: [LoggedMeal]) -> Result {
-        guard let image = resizedPhoto(imageData) else { return .empty }
+        guard let image = PhotoImage.cgImage(imageData, maxPixel: photoSide) else { return .empty }
 
         let reading = read(image)
         let remembered = rememberedMeals(from: meals)
@@ -72,7 +71,7 @@ nonisolated enum FoodRecognizer {
                 return RememberedMeal(title: meal.title, observation: observation, printToSave: nil)
             }
             guard let imageData = meal.imageData,
-                  let image = resizedPhoto(imageData),
+                  let image = PhotoImage.cgImage(imageData, maxPixel: photoSide),
                   let observation = featurePrint(of: image) else { return nil }
             let printToSave = archived(observation).map { (meal.id, $0) }
             return RememberedMeal(title: meal.title, observation: observation, printToSave: printToSave)
@@ -131,19 +130,6 @@ nonisolated enum FoodRecognizer {
 
     private static func featurePrint(from data: Data) -> VNFeaturePrintObservation? {
         try? NSKeyedUnarchiver.unarchivedObject(ofClass: VNFeaturePrintObservation.self, from: data)
-    }
-
-    private static func resizedPhoto(_ data: Data) -> CGImage? {
-        guard let image = UIImage(data: data) else { return nil }
-        let ratio = min(1, photoSide / max(image.size.width, 1))
-        let size = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
-        return rendered.cgImage
     }
 
     private static func hebrewFoodName(for identifier: String) -> String? {

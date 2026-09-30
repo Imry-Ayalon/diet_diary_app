@@ -1,4 +1,3 @@
-import SwiftUI
 import WebKit
 import PDFKit
 
@@ -156,15 +155,3 @@ private final class NavigationWaiter: NSObject, WKNavigationDelegate {
     }
 }
 
-func presentShareSheet(url: URL) {
-    guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-          let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else {
-        return
-    }
-    var presenter = root
-    while let presented = presenter.presentedViewController {
-        presenter = presented
-    }
-    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    presenter.present(controller, animated: true)
-}

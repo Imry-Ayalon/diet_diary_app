@@ -47,7 +47,7 @@ struct DailyReportView: View {
                 Section(section.type.title) {
                     ForEach(section.entries) { entry in
                         HStack(alignment: .top, spacing: 12) {
-                            if let data = entry.imageData, let uiImage = UIImage(data: data) {
+                            if let data = entry.imageData, let uiImage = PhotoImage.thumbnail(data, points: 52) {
                                 Image(uiImage: uiImage)
                                     .resizable()
                                     .scaledToFill()

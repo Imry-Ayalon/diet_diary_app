@@ -3,6 +3,7 @@ import SwiftUI
 struct ReportRangeSheet: View {
     @Binding var start: Date
     @Binding var end: Date
+    @Binding var includePhotos: Bool
     let onShare: () -> Void
     
     @Environment(\.dismiss) private var dismiss
@@ -23,6 +24,10 @@ struct ReportRangeSheet: View {
                     DatePicker("עד תאריך", selection: $end, displayedComponents: .date)
                 }
                 
+                Section {
+                    Toggle("כולל תמונות", isOn: $includePhotos)
+                }
+
                 Section("בחירה מהירה") {
                     Button("השבוע") { apply(ReportCalendar.thisWeek()) }
                     Button("השבוע שעבר") { apply(ReportCalendar.previousWeek()) }

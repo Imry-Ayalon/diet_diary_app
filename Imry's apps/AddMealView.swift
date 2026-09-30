@@ -48,7 +48,7 @@ struct AddMealView: View {
                 }
                 
                 Section(header: Text("תמונה")) {
-                    if let imageData, let uiImage = UIImage(data: imageData) {
+                    if let imageData, let uiImage = PhotoImage.thumbnail(imageData, points: 400) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFit()
@@ -80,9 +80,10 @@ struct AddMealView: View {
                         .buttonStyle(.bordered)
                         .onChange(of: selectedPhotoItem) { _, newValue in
                             Task {
-                                if let data = try? await newValue?.loadTransferable(type: Data.self) {
-                                    imageData = data
-                                }
+                                guard let data = try? await newValue?.loadTransferable(type: Data.self) else { return }
+                                imageData = await Task.detached(priority: .userInitiated) {
+                                    PhotoImage.jpeg(data, maxSide: 1024, quality: 0.5)
+                                }.value
                             }
                         }
                     }

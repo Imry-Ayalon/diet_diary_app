@@ -14,8 +14,9 @@ struct ContentView: View {
     @State private var shareAfterRangeDismiss = false
     @State private var reportStart = ReportCalendar.thisWeek().start
     @State private var reportEnd = ReportCalendar.thisWeek().end
+    @AppStorage("reportIncludesPhotos") private var reportIncludesPhotos = true
     
-    private func reportPages(from start: Date, to end: Date) -> [String] {
+    private func reportPages(from start: Date, to end: Date, includePhotos: Bool) -> [String] {
         let calendar = ReportCalendar.calendar
         let dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
         let rows: [(MealType, String)] = [
@@ -32,6 +33,7 @@ struct ContentView: View {
         dateFormatter.calendar = calendar
         dateFormatter.dateFormat = "d/MM/yy"
         
+        let byDay = Dictionary(grouping: foodEntries) { calendar.startOfDay(for: $0.date) }
         return ReportCalendar.weeks(from: start, to: end).map { days in
             var html = """
             <!DOCTYPE html>
@@ -66,10 +68,10 @@ struct ContentView: View {
             for (type, label) in rows {
                 html += "<tr><th class=\"label\">\(label)</th>"
                 for day in days {
-                    let matches = foodEntries
-                        .filter { calendar.isDate($0.date, inSameDayAs: day) && $0.mealType == type }
+                    let matches = (byDay[calendar.startOfDay(for: day)] ?? [])
+                        .filter { $0.mealType == type }
                         .sorted { $0.date < $1.date }
-                    html += "<td>\(reportCell(matches))</td>"
+                    html += "<td>\(reportCell(matches, includePhotos: includePhotos))</td>"
                 }
                 html += "</tr>"
             }
@@ -78,12 +80,12 @@ struct ContentView: View {
         }
     }
     
-    private func reportCell(_ entries: [FoodEntry]) -> String {
+    private func reportCell(_ entries: [FoodEntry], includePhotos: Bool) -> String {
         entries.map { entry in
             var parts: [String] = []
-            if let data = entry.imageData,
-               let image = UIImage(data: data),
-               let jpeg = reportJPEG(image) {
+            if includePhotos,
+               let data = entry.imageData,
+               let jpeg = PhotoImage.jpeg(data, maxSide: 160, quality: 0.45) {
                 parts.append("<img src=\"data:image/jpeg;base64,\(jpeg.base64EncodedString())\" alt=\"\">")
             }
             parts.append("<div>תוכן : \(reportEscape(entry.title))</div>")
@@ -102,20 +104,6 @@ struct ContentView: View {
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "\n", with: "<br>")
-    }
-    
-    private func reportJPEG(_ image: UIImage) -> Data? {
-        let maxWidth: CGFloat = 120
-        let maxHeight: CGFloat = 56
-        let widthRatio = maxWidth / image.size.width
-        let heightRatio = maxHeight / image.size.height
-        let ratio = min(widthRatio, heightRatio, 1)
-        let size = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let scaled = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
-        }
-        return scaled.jpegData(compressionQuality: 0.45)
     }
     
     private var groupedDays: [(day: Date, entries: [FoodEntry])] {
@@ -179,12 +167,10 @@ struct ContentView: View {
                     .disabled(isSharingReport)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
+                    Button {
                         showingAddMeal = true
-                    }) {
-                        HStack {
-                            Image(systemName: "plus")
-                        }
+                    } label: {
+                        Image(systemName: "plus")
                     }
                 }
             }
@@ -196,7 +182,7 @@ struct ContentView: View {
                 shareAfterRangeDismiss = false
                 Task { await shareWeeklyReport() }
             }) {
-                ReportRangeSheet(start: $reportStart, end: $reportEnd) {
+                ReportRangeSheet(start: $reportStart, end: $reportEnd, includePhotos: $reportIncludesPhotos) {
                     shareAfterRangeDismiss = true
                 }
             }
@@ -226,16 +212,16 @@ struct ContentView: View {
             imageData: entry.imageData,
             featurePrint: entry.featurePrint
         )
-        withAnimation {
-            modelContext.insert(copy)
-            toastMessage = "«\(entry.title)» נוסף להיום"
-        }
+        withAnimation { modelContext.insert(copy) }
+        showToast("«\(entry.title)» נוסף להיום")
+    }
+
+    private func showToast(_ message: String) {
+        withAnimation { toastMessage = message }
         Task {
             try? await Task.sleep(for: .seconds(2))
             withAnimation {
-                if toastMessage == "«\(entry.title)» נוסף להיום" {
-                    toastMessage = nil
-                }
+                if toastMessage == message { toastMessage = nil }
             }
         }
     }
@@ -250,7 +236,7 @@ struct ContentView: View {
     
     private func entryRow(_ entry: FoodEntry) -> some View {
         HStack(spacing: 12) {
-            if let data = entry.imageData, let uiImage = UIImage(data: data) {
+            if let data = entry.imageData, let uiImage = PhotoImage.thumbnail(data, points: 60) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -300,19 +286,11 @@ struct ContentView: View {
         isSharingReport = true
         defer { isSharingReport = false }
         do {
-            let pages = reportPages(from: reportStart, to: reportEnd)
+            let pages = reportPages(from: reportStart, to: reportEnd, includePhotos: reportIncludesPhotos)
             let url = try await WeeklyReportPDF.file(pages: pages)
-            presentShareSheet(url: url)
+            presentShare(url: url)
         } catch {
-            withAnimation {
-                toastMessage = "לא הצלחנו ליצור את הדוח"
-            }
-            try? await Task.sleep(for: .seconds(2))
-            withAnimation {
-                if toastMessage == "לא הצלחנו ליצור את הדוח" {
-                    toastMessage = nil
-                }
-            }
+            showToast("לא הצלחנו ליצור את הדוח")
         }
     }
     

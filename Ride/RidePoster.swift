@@ -153,7 +153,7 @@ enum RidePoster {
         let minLon = longitudes.min() ?? first.longitude
         let maxLon = longitudes.max() ?? first.longitude
         let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2, longitude: (minLon + maxLon) / 2)
-        var latitudeDelta = Swift.max((maxLat - minLat) * 1.28, 0.008)
+        let latitudeDelta = Swift.max((maxLat - minLat) * 1.28, 0.008)
         var longitudeDelta = Swift.max((maxLon - minLon) * 1.7, 0.008)
         let metersPerDegree = 111_320.0
         let metersPerLongitude = metersPerDegree * cos(center.latitude * .pi / 180)
@@ -235,20 +235,3 @@ enum RidePoster {
     }
 }
 
-func presentRideShare(url: URL) {
-    guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-          let root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else {
-        return
-    }
-    var presenter = root
-    while let presented = presenter.presentedViewController {
-        presenter = presented
-    }
-    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    if let popover = controller.popoverPresentationController {
-        popover.sourceView = presenter.view
-        popover.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 1, height: 1)
-        popover.permittedArrowDirections = []
-    }
-    presenter.present(controller, animated: true)
-}
