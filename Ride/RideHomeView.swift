@@ -7,7 +7,9 @@ struct RideHomeView: View {
     @Query(sort: \Ride.date, order: .reverse) private var rides: [Ride]
 
     @AppStorage("riderWeightKg") private var weightKg = 0.0
+    @Environment(\.scenePhase) private var scenePhase
     @State private var session = RideSession()
+    @State private var sessionReady = false
     @State private var showingWeight = false
     @State private var confirmDiscard = false
     @State private var saveError: String?
@@ -17,10 +19,21 @@ struct RideHomeView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if session.phase == .idle {
+                if !sessionReady {
+                    Color.clear
+                } else if session.phase == .idle {
                     history
                 } else {
                     activeRide
+                }
+            }
+            .onAppear {
+                session.restoreIfNeeded()
+                sessionReady = true
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active {
+                    session.saveProgress()
                 }
             }
             .navigationTitle("movement")

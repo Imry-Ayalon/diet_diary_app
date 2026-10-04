@@ -17,6 +17,24 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         case riding
         case trafficPause
         case breakPause
+
+        fileprivate var storedName: String {
+            switch self {
+            case .idle: "idle"
+            case .riding: "riding"
+            case .trafficPause: "trafficPause"
+            case .breakPause: "breakPause"
+            }
+        }
+
+        fileprivate init?(stored name: String) {
+            switch name {
+            case "riding": self = .riding
+            case "trafficPause": self = .trafficPause
+            case "breakPause": self = .breakPause
+            default: return nil
+            }
+        }
     }
 
     private(set) var phase: Phase = .idle
@@ -39,20 +57,34 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
 
     private let slowLimit = 4
     private let maxAccuracy = 25.0
+    private var lastSavedAt = Date.distantPast
 
     func start(_ kind: ActivityKind) {
         resetMeasurements()
         self.kind = kind
         phase = .riding
         locationDenied = false
-        manager.delegate = self
-        manager.activityType = .fitness
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = kCLDistanceFilterNone
-        manager.pausesLocationUpdatesAutomatically = false
-        manager.requestWhenInUseAuthorization()
-        beginUpdatesIfAllowed()
-        startTimer()
+        ensureTracking()
+        saveProgress()
+    }
+
+    func restoreIfNeeded() {
+        guard phase == .idle, let draft = ActiveRideDraftStore.load() else { return }
+        kind = ActivityKind(rawValue: draft.kind) ?? .ride
+        distanceMeters = draft.distanceMeters
+        movingSeconds = draft.movingSeconds
+        ascentMeters = draft.ascentMeters
+        maxSpeedMetersPerSecond = draft.maxSpeedMetersPerSecond
+        track = draft.track
+        smoothedAltitude = draft.smoothedAltitude
+        countedAltitude = draft.countedAltitude
+        phase = Phase(stored: draft.phase) ?? .breakPause
+        locationDenied = false
+        if phase == .breakPause {
+            speedMetersPerSecond = 0
+        } else {
+            ensureTracking()
+        }
     }
 
     func pauseForBreak() {
@@ -61,6 +93,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         slowSeconds = 0
         lastLocation = nil
         speedMetersPerSecond = 0
+        saveProgress()
     }
 
     func resumeFromBreak() {
@@ -68,6 +101,24 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         phase = .riding
         slowSeconds = 0
         lastLocation = nil
+        ensureTracking()
+        saveProgress()
+    }
+
+    func saveProgress() {
+        guard phase != .idle else { return }
+        lastSavedAt = Date()
+        ActiveRideDraftStore.save(ActiveRideDraft(
+            phase: phase.storedName,
+            kind: kind.rawValue,
+            distanceMeters: distanceMeters,
+            movingSeconds: movingSeconds,
+            ascentMeters: ascentMeters,
+            maxSpeedMetersPerSecond: maxSpeedMetersPerSecond,
+            track: track,
+            smoothedAltitude: smoothedAltitude,
+            countedAltitude: countedAltitude
+        ))
     }
 
     func discard() {
@@ -97,6 +148,7 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         phase = .idle
         kind = .ride
         resetMeasurements()
+        ActiveRideDraftStore.clear()
     }
 
     private func resetMeasurements() {
@@ -111,6 +163,22 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         countedAltitude = nil
         slowSeconds = 0
         hasFix = false
+    }
+
+    private func ensureTracking() {
+        manager.delegate = self
+        manager.activityType = .fitness
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = kCLDistanceFilterNone
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.requestWhenInUseAuthorization()
+        beginUpdatesIfAllowed()
+        startTimer()
+    }
+
+    private func saveProgressIfDue() {
+        guard Date().timeIntervalSince(lastSavedAt) >= 15 else { return }
+        saveProgress()
     }
 
     private func beginUpdatesIfAllowed() {
@@ -153,16 +221,19 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
                     phase = .trafficPause
                     slowSeconds = 0
                     lastLocation = nil
+                    saveProgress()
                 }
             } else {
                 slowSeconds = 0
             }
         }
+        saveProgressIfDue()
     }
 
     private func absorb(_ location: CLLocation) {
         guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= maxAccuracy else { return }
         hasFix = true
+        defer { saveProgressIfDue() }
         guard location.speed >= 0 else { return }
         speedMetersPerSecond = location.speed
         if phase == .riding, location.speed < 28 {
@@ -224,5 +295,44 @@ final class RideSession: NSObject, CLLocationManagerDelegate {
         Task { @MainActor in
             locations.forEach(absorb)
         }
+    }
+}
+
+private struct ActiveRideDraft: Codable {
+    var phase: String
+    var kind: String
+    var distanceMeters: Double
+    var movingSeconds: Double
+    var ascentMeters: Double
+    var maxSpeedMetersPerSecond: Double
+    var track: [TrackPoint]
+    var smoothedAltitude: Double?
+    var countedAltitude: Double?
+}
+
+private enum ActiveRideDraftStore {
+    private static var url: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: DiaryStore.appGroupID)?
+            .appending(path: "active-ride.json")
+    }
+
+    static func load() -> ActiveRideDraft? {
+        guard let url, let data = try? Data(contentsOf: url) else { return nil }
+        guard let draft = try? JSONDecoder().decode(ActiveRideDraft.self, from: data) else {
+            clear()
+            return nil
+        }
+        return draft
+    }
+
+    static func save(_ draft: ActiveRideDraft) {
+        guard let url, let data = try? JSONEncoder().encode(draft) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    static func clear() {
+        guard let url else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 }
