@@ -19,10 +19,11 @@ struct DailyReportView: View {
         )
     }
     
-    private var sections: [(type: MealType, entries: [FoodEntry])] {
+    private var sections: [(type: MealType, entries: [ReportItem])] {
         MealType.allCases.compactMap { type in
             let matches = entries.filter { $0.mealType == type }
-            return matches.isEmpty ? nil : (type, matches)
+            let collapsed = WorkoutReportCollapser.collapse(entries: matches)
+            return collapsed.isEmpty ? nil : (type, collapsed)
         }
     }
     

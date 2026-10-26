@@ -11,12 +11,18 @@ enum RidePoster {
         var ascentMeters: Double
         var maxSpeedMetersPerSecond: Double
         var track: [TrackPoint]
+        var language: MovementLanguage = .hebrew
     }
 
-    static func jpeg(_ stats: Stats) async -> URL? {
+    static func jpeg(_ stats: Stats, backgroundPhoto: UIImage? = nil) async -> URL? {
         let size = CGSize(width: canvasWidth, height: canvasHeight)
-        let map = await mapImage(track: stats.track, size: size)
-        let image = render(stats, map: map)
+        let background: UIImage
+        if let backgroundPhoto {
+            background = fittedPhoto(backgroundPhoto, size: size)
+        } else {
+            background = await mapImage(track: stats.track, size: size)
+        }
+        let image = render(stats, background: background)
         guard let data = image.jpegData(compressionQuality: 0.9) else { return nil }
         let url = FileManager.default.temporaryDirectory.appending(path: "ride-\(UUID().uuidString).jpg")
         do {
@@ -31,7 +37,7 @@ enum RidePoster {
     private static let canvasHeight: CGFloat = 1920
     private static let sideInset: CGFloat = 64
 
-    private static func render(_ stats: Stats, map: UIImage) -> UIImage {
+    private static func render(_ stats: Stats, background: UIImage) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = true
@@ -40,9 +46,28 @@ enum RidePoster {
             format: format
         )
         return renderer.image { context in
-            map.draw(in: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+            background.draw(in: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
             drawScrim(in: context.cgContext)
             drawStats(stats)
+        }
+    }
+
+    private static func fittedPhoto(_ photo: UIImage, size: CGSize) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            let photoSize = photo.size
+            guard photoSize.width > 0, photoSize.height > 0 else {
+                UIColor.darkGray.setFill()
+                UIBezierPath(rect: CGRect(origin: .zero, size: size)).fill()
+                return
+            }
+            let scale = max(size.width / photoSize.width, size.height / photoSize.height)
+            let drawn = CGSize(width: photoSize.width * scale, height: photoSize.height * scale)
+            let origin = CGPoint(x: (size.width - drawn.width) / 2, y: (size.height - drawn.height) / 2)
+            photo.draw(in: CGRect(origin: origin, size: drawn))
         }
     }
 
@@ -63,39 +88,61 @@ enum RidePoster {
     }
 
     private static func drawStats(_ stats: Stats) {
+        let language = stats.language
+        let rtl = language == .hebrew
         let textWidth = canvasWidth - sideInset * 2
         let columnWidth = textWidth / 2
-        let distanceX = canvasWidth - sideInset - columnWidth
-        let timeX = sideInset
+        let alignment: NSTextAlignment = rtl ? .right : .left
+        let distanceX = rtl ? canvasWidth - sideInset - columnWidth : sideInset + columnWidth
+        let timeX = rtl ? sideInset : sideInset
+        let iconX = rtl ? canvasWidth - sideInset - 72 : sideInset
 
         if let icon = UIImage(systemName: stats.kind.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 58, weight: .medium))?.withTintColor(.white, renderingMode: .alwaysOriginal) {
-            icon.draw(in: CGRect(x: canvasWidth - sideInset - 72, y: 1040, width: 72, height: 58))
+            icon.draw(in: CGRect(x: iconX, y: 1040, width: 72, height: 58))
         }
 
-        draw(stats.kind.posterTitle(at: stats.date), in: CGRect(x: sideInset, y: 1136, width: textWidth, height: 80), font: .systemFont(ofSize: 64, weight: .bold), color: .white, alignment: .right)
+        draw(
+            stats.kind.posterTitle(at: stats.date, language: language),
+            in: CGRect(x: sideInset, y: 1136, width: textWidth, height: 80),
+            font: .systemFont(ofSize: 64, weight: .bold),
+            color: .white,
+            alignment: alignment,
+            rtl: rtl
+        )
 
         let labelFont = UIFont.systemFont(ofSize: 32, weight: .regular)
         let labelColor = UIColor.white.withAlphaComponent(0.92)
         let numberFont = UIFont.systemFont(ofSize: 68, weight: .bold)
-        draw("מרחק", in: CGRect(x: distanceX, y: 1268, width: columnWidth, height: 42), font: labelFont, color: labelColor, alignment: .right)
-        draw("זמן", in: CGRect(x: timeX, y: 1268, width: columnWidth, height: 42), font: labelFont, color: labelColor, alignment: .right)
-        draw(distanceText(stats.distanceMeters), in: CGRect(x: distanceX, y: 1318, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: .right)
+        let distanceLabel = MovementText.t("מרחק", "Distance", language)
+        let timeLabel = MovementText.t("זמן", "Time", language)
+        let ascentLabel = MovementText.t("עלייה", "Ascent", language)
 
-        let time = timeParts(stats.movingSeconds)
-        draw(time.primary, in: CGRect(x: timeX, y: 1318, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: .right)
+        draw(distanceLabel, in: CGRect(x: distanceX, y: 1268, width: columnWidth, height: 42), font: labelFont, color: labelColor, alignment: alignment, rtl: rtl)
+        draw(timeLabel, in: CGRect(x: timeX, y: 1268, width: columnWidth, height: 42), font: labelFont, color: labelColor, alignment: alignment, rtl: rtl)
+        draw(distanceText(stats.distanceMeters, language: language), in: CGRect(x: distanceX, y: 1318, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: alignment, rtl: rtl)
+
+        let time = timeParts(stats.movingSeconds, language: language)
+        draw(time.primary, in: CGRect(x: timeX, y: 1318, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: alignment, rtl: rtl)
         if let secondary = time.secondary {
-            draw(secondary, in: CGRect(x: timeX, y: 1408, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: .right)
+            draw(secondary, in: CGRect(x: timeX, y: 1408, width: columnWidth, height: 84), font: numberFont, color: .white, alignment: alignment, rtl: rtl)
         }
 
-        draw("עלייה", in: CGRect(x: sideInset, y: 1568, width: textWidth, height: 42), font: labelFont, color: labelColor, alignment: .right)
-        draw(ascentText(stats.ascentMeters), in: CGRect(x: sideInset, y: 1616, width: textWidth, height: 84), font: numberFont, color: .white, alignment: .right)
-        draw(speedLine(stats), in: CGRect(x: sideInset, y: 1736, width: textWidth, height: 48), font: .systemFont(ofSize: 32, weight: .semibold), color: .white, alignment: .right)
+        draw(ascentLabel, in: CGRect(x: sideInset, y: 1568, width: textWidth, height: 42), font: labelFont, color: labelColor, alignment: alignment, rtl: rtl)
+        draw(ascentText(stats.ascentMeters, language: language), in: CGRect(x: sideInset, y: 1616, width: textWidth, height: 84), font: numberFont, color: .white, alignment: alignment, rtl: rtl)
+        draw(speedLine(stats), in: CGRect(x: sideInset, y: 1736, width: textWidth, height: 48), font: .systemFont(ofSize: 32, weight: .semibold), color: .white, alignment: alignment, rtl: rtl)
     }
 
-    private static func draw(_ text: String, in rect: CGRect, font: UIFont, color: UIColor, alignment: NSTextAlignment) {
+    private static func draw(
+        _ text: String,
+        in rect: CGRect,
+        font: UIFont,
+        color: UIColor,
+        alignment: NSTextAlignment,
+        rtl: Bool
+    ) {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
-        style.baseWritingDirection = .rightToLeft
+        style.baseWritingDirection = rtl ? .rightToLeft : .leftToRight
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color,
@@ -104,19 +151,29 @@ enum RidePoster {
         (text as NSString).draw(in: rect, withAttributes: attributes)
     }
 
-    private static func distanceText(_ meters: Double) -> String {
-        String(format: "%.2f ק״מ", meters / 1000)
+    private static func distanceText(_ meters: Double, language: MovementLanguage) -> String {
+        language == .english
+            ? String(format: "%.2f km", meters / 1000)
+            : String(format: "%.2f ק״מ", meters / 1000)
     }
 
-    private static func ascentText(_ meters: Double) -> String {
-        "\(Int(meters.rounded())) מ׳"
+    private static func ascentText(_ meters: Double, language: MovementLanguage) -> String {
+        language == .english
+            ? "\(Int(meters.rounded())) m"
+            : "\(Int(meters.rounded())) מ׳"
     }
 
-    private static func timeParts(_ seconds: TimeInterval) -> (primary: String, secondary: String?) {
+    private static func timeParts(_ seconds: TimeInterval, language: MovementLanguage) -> (primary: String, secondary: String?) {
         let total = Int(seconds.rounded())
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let remainder = total % 60
+        if language == .english {
+            if hours > 0 {
+                return ("\(hours) hr", "\(minutes) min")
+            }
+            return ("\(minutes) min", "\(remainder) sec")
+        }
         if hours > 0 {
             return ("\(hours) שע׳", "\(minutes) דק׳")
         }
@@ -128,6 +185,13 @@ enum RidePoster {
             distanceMeters: stats.distanceMeters,
             movingSeconds: stats.movingSeconds
         )
+        if stats.language == .english {
+            var line = String(format: "Avg %.1f km/h", average)
+            if stats.maxSpeedMetersPerSecond > 0 {
+                line += String(format: "  ·  Max %.1f", stats.maxSpeedMetersPerSecond * 3.6)
+            }
+            return line
+        }
         var line = String(format: "ממוצע %.1f קמ״ש", average)
         if stats.maxSpeedMetersPerSecond > 0 {
             line += String(format: "  ·  מרבי %.1f", stats.maxSpeedMetersPerSecond * 3.6)
@@ -234,4 +298,3 @@ enum RidePoster {
         return points
     }
 }
-

@@ -86,35 +86,52 @@ enum DiaryStoreError: Error {
     case missingAppGroup
 }
 
-enum ActivityKind: String {
+enum ActivityKind: String, CaseIterable, Identifiable {
     case ride
     case run
+    case walk
 
-    var label: String {
-        switch self {
-        case .ride: "רכיבה"
-        case .run: "ריצה"
+    var id: String { rawValue }
+
+    func label(_ language: MovementLanguage) -> String {
+        switch (self, language) {
+        case (.ride, .hebrew): "רכיבה"
+        case (.ride, .english): "Ride"
+        case (.run, .hebrew): "ריצה"
+        case (.run, .english): "Run"
+        case (.walk, .hebrew): "הליכה"
+        case (.walk, .english): "Walk"
         }
     }
 
-    var moving: String {
-        switch self {
-        case .ride: "רוכב"
-        case .run: "רץ"
+    func moving(_ language: MovementLanguage) -> String {
+        switch (self, language) {
+        case (.ride, .hebrew): "רוכב"
+        case (.ride, .english): "Riding"
+        case (.run, .hebrew): "רץ"
+        case (.run, .english): "Running"
+        case (.walk, .hebrew): "הולך"
+        case (.walk, .english): "Walking"
         }
     }
 
-    var resume: String {
-        switch self {
-        case .ride: "המשך לרכוב"
-        case .run: "המשך לרוץ"
+    func resume(_ language: MovementLanguage) -> String {
+        switch (self, language) {
+        case (.ride, .hebrew): "המשך לרכוב"
+        case (.ride, .english): "Keep riding"
+        case (.run, .hebrew): "המשך לרוץ"
+        case (.run, .english): "Keep running"
+        case (.walk, .hebrew): "המשך ללכת"
+        case (.walk, .english): "Keep walking"
         }
     }
 
+    /// Always Hebrew so the meal diary row matches existing workout titles.
     var diaryTitle: String {
         switch self {
         case .ride: "רכיבת אופניים"
         case .run: "ריצה"
+        case .walk: "הליכה"
         }
     }
 
@@ -122,6 +139,7 @@ enum ActivityKind: String {
         switch self {
         case .ride: "bicycle"
         case .run: "figure.run"
+        case .walk: "figure.walk"
         }
     }
 
@@ -129,6 +147,7 @@ enum ActivityKind: String {
         switch self {
         case .ride: 0.8
         case .run: 0.5
+        case .walk: 0.3
         }
     }
 
@@ -136,19 +155,39 @@ enum ActivityKind: String {
         switch self {
         case .ride: 2.0
         case .run: 1.3
+        case .walk: 0.8
         }
     }
 
-    var definite: String {
-        switch self {
-        case .ride: "הרכיבה"
-        case .run: "הריצה"
+    func definite(_ language: MovementLanguage) -> String {
+        switch (self, language) {
+        case (.ride, .hebrew): "הרכיבה"
+        case (.ride, .english): "the ride"
+        case (.run, .hebrew): "הריצה"
+        case (.run, .english): "the run"
+        case (.walk, .hebrew): "ההליכה"
+        case (.walk, .english): "the walk"
         }
     }
 
-    func posterTitle(at date: Date) -> String {
+    func posterTitle(at date: Date, language: MovementLanguage) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        if language == .english {
+            let time: String
+            switch hour {
+            case 5..<12: time = "Morning"
+            case 12..<17: time = "Afternoon"
+            case 17..<22: time = "Evening"
+            default: time = "Night"
+            }
+            switch self {
+            case .ride: return "\(time) ride"
+            case .run: return "\(time) run"
+            case .walk: return "\(time) walk"
+            }
+        }
         let time: String
-        switch Calendar.current.component(.hour, from: date) {
+        switch hour {
         case 5..<12: time = "בוקר"
         case 12..<17: time = "צהריים"
         case 17..<22: time = "ערב"
@@ -157,6 +196,7 @@ enum ActivityKind: String {
         switch self {
         case .ride: return "רכיבת \(time)"
         case .run: return "ריצת \(time)"
+        case .walk: return "הליכת \(time)"
         }
     }
 }
@@ -165,7 +205,12 @@ enum RideCalories {
     static func estimate(distanceMeters: Double, movingSeconds: TimeInterval, weightKg: Double, kind: ActivityKind) -> Int? {
         guard weightKg > 0, movingSeconds > 0, distanceMeters > 0 else { return nil }
         let kilometersPerHour = (distanceMeters / 1000) / (movingSeconds / 3600)
-        let met = kind == .run ? runningEffort(for: kilometersPerHour) : cyclingEffort(for: kilometersPerHour)
+        let met: Double
+        switch kind {
+        case .run: met = runningEffort(for: kilometersPerHour)
+        case .ride: met = cyclingEffort(for: kilometersPerHour)
+        case .walk: met = walkingEffort(for: kilometersPerHour)
+        }
         let hours = movingSeconds / 3600
         return Int((met * weightKg * hours).rounded())
     }
@@ -190,18 +235,46 @@ enum RideCalories {
         default: return 14.5
         }
     }
+
+    private static func walkingEffort(for kilometersPerHour: Double) -> Double {
+        switch kilometersPerHour {
+        case ..<4: return 2.0
+        case ..<5: return 3.5
+        case ..<6.5: return 4.3
+        case ..<7.5: return 5.0
+        default: return 6.3
+        }
+    }
 }
 
 enum RideSummary {
-    static func notes(distanceMeters: Double, movingSeconds: TimeInterval, ascentMeters: Double = 0, calories: Int?) -> String {
+    static func notes(
+        distanceMeters: Double,
+        movingSeconds: TimeInterval,
+        ascentMeters: Double = 0,
+        calories: Int?,
+        language: MovementLanguage = .hebrew
+    ) -> String {
         let minutes = Int((movingSeconds / 60).rounded())
-        var notes = String(format: "%.1f ק״מ · %d דק׳", distanceMeters / 1000, minutes)
-        let climbed = Int(ascentMeters.rounded())
-        if climbed > 0 {
-            notes += " · \(climbed) מ׳ עלייה"
-        }
-        if let calories {
-            notes += " · כ-\(calories) קק״ל"
+        var notes: String
+        if language == .english {
+            notes = String(format: "%.1f km · %d min", distanceMeters / 1000, minutes)
+            let climbed = Int(ascentMeters.rounded())
+            if climbed > 0 {
+                notes += " · \(climbed) m ascent"
+            }
+            if let calories {
+                notes += " · ~\(calories) kcal"
+            }
+        } else {
+            notes = String(format: "%.1f ק״מ · %d דק׳", distanceMeters / 1000, minutes)
+            let climbed = Int(ascentMeters.rounded())
+            if climbed > 0 {
+                notes += " · \(climbed) מ׳ עלייה"
+            }
+            if let calories {
+                notes += " · כ-\(calories) קק״ל"
+            }
         }
         return notes
     }
@@ -240,7 +313,8 @@ enum DiaryWorkout {
                 distanceMeters: distanceMeters,
                 movingSeconds: movingSeconds,
                 ascentMeters: ascentMeters,
-                calories: calories
+                calories: calories,
+                language: .hebrew
             ),
             date: date,
             mealType: .workout

@@ -6,6 +6,8 @@ struct RideApp: App {
     private let rides: ModelContainer
     private let diary: ModelContainer
 
+    @AppStorage("movementLanguage") private var languageRaw = MovementLanguage.hebrew.rawValue
+
     init() {
         do {
             rides = try RideLibrary.makeContainer()
@@ -15,10 +17,16 @@ struct RideApp: App {
         }
     }
 
+    private var language: MovementLanguage {
+        MovementLanguage(rawValue: languageRaw) ?? .hebrew
+    }
+
     var body: some Scene {
         WindowGroup {
             RideHomeView(diary: diary)
-                .environment(\.layoutDirection, .rightToLeft)
+                .environment(\.layoutDirection, language.layoutDirection)
+                .environment(\.locale, language.locale)
+                .environment(\.movementLanguage, language)
         }
         .modelContainer(rides)
     }

@@ -16,7 +16,7 @@ struct ContentView: View {
     @State private var reportEnd = ReportCalendar.thisWeek().end
     @AppStorage("reportIncludesPhotos") private var reportIncludesPhotos = true
     
-    private func reportPages(from start: Date, to end: Date, includePhotos: Bool) -> [String] {
+    private func reportPages(from start: Date, to end: Date, includePhotos: Bool) -> [WeeklyReportPage] {
         let calendar = ReportCalendar.calendar
         let dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
         let rows: [(MealType, String)] = [
@@ -35,75 +35,30 @@ struct ContentView: View {
         
         let byDay = Dictionary(grouping: foodEntries) { calendar.startOfDay(for: $0.date) }
         return ReportCalendar.weeks(from: start, to: end).map { days in
-            var html = """
-            <!DOCTYPE html>
-            <html lang="he" dir="rtl">
-            <head>
-            <meta charset="utf-8">
-            <style>
-              * { box-sizing: border-box; }
-              html, body { margin: 0; padding: 0; width: 842px; height: 595px; overflow: hidden; background: white; }
-              table { width: 842px; height: 595px; border-collapse: collapse; table-layout: fixed; font-family: -apple-system, sans-serif; font-size: 8px; }
-              th, td { border: 1px solid #ccc; padding: 2px; vertical-align: top; overflow: hidden; }
-              .label { width: 74px; font-weight: 700; background: #f7f7f7; }
-              .head { height: 22px; background: #f3f3f3; text-align: center; font-size: 10px; }
-              .date { height: 18px; text-align: center; }
-              img { display: block; width: 58px; height: 26px; object-fit: cover; border-radius: 3px; margin-bottom: 1px; }
-              .content, .notes { max-height: 18px; line-height: 9px; overflow: hidden; }
-              .entry + .entry { margin-top: 2px; }
-            </style>
-            </head>
-            <body>
-            <table>
-            <tr class="head"><th class="label"></th>
-            """
-            for name in dayNames {
-                html += "<th>\(name)</th>"
-            }
-            html += "</tr><tr class=\"date\"><th class=\"label\">תאריך</th>"
-            for day in days {
-                html += "<td>\(dateFormatter.string(from: day))</td>"
-            }
-            html += "</tr>"
-            for (type, label) in rows {
-                html += "<tr><th class=\"label\">\(label)</th>"
-                for day in days {
-                    let matches = (byDay[calendar.startOfDay(for: day)] ?? [])
-                        .filter { $0.mealType == type }
-                        .sorted { $0.date < $1.date }
-                    html += "<td>\(reportCell(matches, includePhotos: includePhotos))</td>"
+            WeeklyReportPage(
+                dayNames: dayNames,
+                dates: days.map { dateFormatter.string(from: $0) },
+                rows: rows.map { type, label in
+                    WeeklyReportPage.Row(
+                        label: label,
+                        cells: days.map { day in
+                            let matches = (byDay[calendar.startOfDay(for: day)] ?? [])
+                                .filter { $0.mealType == type }
+                                .sorted { $0.date < $1.date }
+                            return WorkoutReportCollapser.collapse(entries: matches).map { entry in
+                                WeeklyReportPage.Item(
+                                    title: entry.title,
+                                    notes: entry.notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                                    imageJPEG: includePhotos ? entry.imageData.flatMap {
+                                        PhotoImage.jpeg($0, maxSide: 160, quality: 0.45)
+                                    } : nil
+                                )
+                            }
+                        }
+                    )
                 }
-                html += "</tr>"
-            }
-            html += "</table></body></html>"
-            return html
+            )
         }
-    }
-    
-    private func reportCell(_ entries: [FoodEntry], includePhotos: Bool) -> String {
-        entries.map { entry in
-            var parts: [String] = []
-            if includePhotos,
-               let data = entry.imageData,
-               let jpeg = PhotoImage.jpeg(data, maxSide: 160, quality: 0.45) {
-                parts.append("<img src=\"data:image/jpeg;base64,\(jpeg.base64EncodedString())\" alt=\"\">")
-            }
-            parts.append("<div>תוכן : \(reportEscape(entry.title))</div>")
-            let notes = entry.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !notes.isEmpty {
-                parts.append("<div>הערות : \(reportEscape(notes))</div>")
-            }
-            return "<div class=\"entry\">\(parts.joined())</div>"
-        }.joined()
-    }
-    
-    private func reportEscape(_ text: String) -> String {
-        text
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "\n", with: "<br>")
     }
     
     private var groupedDays: [(day: Date, entries: [FoodEntry])] {
@@ -287,7 +242,7 @@ struct ContentView: View {
         defer { isSharingReport = false }
         do {
             let pages = reportPages(from: reportStart, to: reportEnd, includePhotos: reportIncludesPhotos)
-            let url = try await WeeklyReportPDF.file(pages: pages)
+            let url = try WeeklyReportPDF.file(pages: pages)
             presentShare(url: url)
         } catch {
             showToast("לא הצלחנו ליצור את הדוח")
